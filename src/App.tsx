@@ -9,12 +9,26 @@ import FilterBar from "./components/FilterBar"
 import AppBar from "./components/AppBar"
 
 import HetznerServer from "./types/HetznerServer"
+import ServerFilter from "./types/ServerFilter"
 
 
 function App() {
   const [servers, setServers] = useState<HetznerServer[]>([])
   const [filteredServers, setFilteredServers] = useState<HetznerServer[]>([])
-  const [filters, setFilters] = useState({})
+  const [filters, setFilters] = useState<ServerFilter>({
+    cpu: "",
+    minRAM: 0,
+    maxRAM: 1024,
+    maxPrice: Math.max(...servers.map((server) => server.price)),
+    minStorage: 0,
+    diskType: "",
+    minDiskSize: 0,
+    minDiskCount: 0,
+    maxDiskCount: 0,
+    hddMinDiskSize: 0,
+    hddMinDiskCount: 0,
+    hddMaxDiskCount: 0,
+  })
 
   useEffect(() => {
     console.log("Fetching server data...")

@@ -109,7 +109,7 @@ const ServerTable: React.FC<ServerTableProps> = ({ servers }) => {
       <Table
         {...props}
         stickyHeader
-        sx={{ borderCollapse: "collapse", tableLayout: "fixed" }}
+        sx={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}
       />
     ),
     TableHead: React.forwardRef<HTMLTableSectionElement>((props, ref) => (

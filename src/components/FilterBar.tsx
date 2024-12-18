@@ -4,165 +4,249 @@ import {
   Button,
   MenuItem,
   Paper,
-} from "@mui/material"
-import { styled } from '@mui/material/styles'
-import { grey } from '@mui/material/colors'
+  Slider,
+  Box,
+  Typography,
+} from '@mui/material'
 import { ChangeEvent } from 'react'
 
-import HetznerServer from "../types/HetznerServer"
+import RamSlider from './RamSlider'
 
-/* type Server = {
-  cpu: string
-  ram_size: number
-  price: number
-  hdd_arr: string[]
-  serverDiskData: {
-    nvme: number[]
-    sata: number[]
-    hdd: number[]
-    general: number[]
-  }
-} */
-
-type Filters = {
-  cpu?: string
-  minRAM?: number
-  maxPrice?: number
-  minStorage?: number
-  diskType?: string
-  diskSize?: number
-  diskCount?: number
-}
+import HetznerServer from '../types/HetznerServer'
+import ServerFilter from '../types/ServerFilter'
 
 type FilterBarProps = {
-  filters: Filters
-  setFilters: (filters: Filters) => void
-  servers: HetznerServer[]
-  setFilteredServers: (servers: HetznerServer[]) => void
-}
+  filters: ServerFilter;
+  setFilters: (filters: ServerFilter) => void;
+  servers: HetznerServer[];
+  setFilteredServers: (servers: HetznerServer[]) => void;
+};
 
 const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, servers, setFilteredServers }) => {
   const applyFilters = () => {
-    let filtered = servers
+    let filtered = servers;
 
-    // Combine all filters
+    // CPU filter
     if (filters.cpu) {
-      filtered = filtered.filter((server) => server.cpu.toLowerCase().includes(filters.cpu!.toLowerCase()))
+      filtered = filtered.filter((server) =>
+        server.cpu.toLowerCase().includes(filters.cpu!.toLowerCase())
+      );
     }
-    if (filters.minRAM) {
-      filtered = filtered.filter((server) => server.ram_size >= filters.minRAM!)
+
+    // RAM filter
+    if (filters.minRAM || filters.maxRAM) {
+      filtered = filtered.filter((server) => {
+        const ram = server.ram_size;
+        return (
+          (!filters.minRAM || ram >= filters.minRAM) &&
+          (!filters.maxRAM || ram <= filters.maxRAM)
+        );
+      });
     }
+
+    // Price filter
     if (filters.maxPrice) {
-      filtered = filtered.filter((server) => server.price <= filters.maxPrice!)
+      filtered = filtered.filter((server) => server.price <= filters.maxPrice!);
     }
+
+    // Storage filter
     if (filters.minStorage) {
       filtered = filtered.filter((server) =>
         server.hdd_arr.some((disk) => parseInt(disk.match(/\d+/)![0]) >= filters.minStorage!)
-      )
+      );
     }
-    if (filters.diskType && filters.diskSize && filters.diskCount) {
+
+    // SSD/NVMe disk filters
+    if (filters.diskType && filters.minDiskSize && (filters.minDiskCount || filters.maxDiskCount)) {
       filtered = filtered.filter((server) => {
         const disks =
           filters.diskType === "SSD"
-            ? server.serverDiskData.sata
-            : filters.diskType === "HDD"
-            ? server.serverDiskData.hdd
-            : []
-        const matchingDisks = disks.filter((size) => size >= filters.diskSize!)
-        return matchingDisks.length >= filters.diskCount!
-      })
+            ? server.serverDiskData.sata.concat(server.serverDiskData.nvme)
+            : [];
+
+        const matchingDisks = disks.filter((size) => size >= filters.minDiskSize!);
+        const diskCount = matchingDisks.length;
+
+        return (
+          diskCount >= (filters.minDiskCount || 0) &&
+          diskCount <= (filters.maxDiskCount || Infinity)
+        );
+      });
     }
 
-    setFilteredServers(filtered)
-  }
+    // HDD disk filters
+    if (filters.hddMinDiskSize && (filters.hddMinDiskCount || filters.hddMaxDiskCount)) {
+      filtered = filtered.filter((server) => {
+        const disks = server.serverDiskData.hdd;
+        const matchingDisks = disks.filter((size) => size >= filters.hddMinDiskSize!);
+        const diskCount = matchingDisks.length;
 
-  const Item = styled(Paper)()
+        return (
+          diskCount >= (filters.hddMinDiskCount || 0) &&
+          diskCount <= (filters.hddMaxDiskCount || Infinity)
+        );
+      });
+    }
+
+    setFilteredServers(filtered);
+  };
 
   return (
     <Paper style={{ padding: '1rem' }}>
       <Grid container spacing={2} sx={{ marginBottom: "1rem" }}>
-        <Grid size={{ xs: 12, sm:4, md: 3 }}>
-          <Item>
-            <TextField
-              label="CPU"
-              fullWidth
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setFilters({ ...filters, cpu: e.target.value })}
+        {/* CPU Filter */}
+        <Grid size={{ xs: 12, sm: 4, md: 3 }}>
+          <TextField
+            label="CPU"
+            fullWidth
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              setFilters({ ...filters, cpu: e.target.value })
+            }
+          />
+        </Grid>
+
+        {/* RAM Filters */}
+        <Grid size={{ xs: 12, sm: 4, md: 3 }}>
+          {/* RAM
+          <Slider
+            getAriaLabel={() => 'RAM Slider'}
+            value={[filters.minRAM || 0, filters.maxRAM || 0]}
+            onChange={
+              (_e: Event, newValue: number | number[]) => {
+                const [minRAM, maxRAM] = newValue as number[];
+                setFilters({ ...filters, minRAM, maxRAM });
+              }
+            }
+            valueLabelDisplay="auto"
+            getAriaValueText={(value) => `${value}GB`}
+            min={0}
+            max={Math.max(...servers.map((server) => server.ram_size))}
+            marks={[
+              { value: 0, label: "0GB" },
+              { value: 1024, label: "1024GB" },
+            ]}
+          /> */}
+          <RamSlider
+            value={[filters.minRAM || 0, filters.maxRAM || 0]}
+            setValue={
+              (value: number[]) => setFilters({ ...filters, minRAM: value[0], maxRAM: value[1] })
+            }
+          />
+        </Grid>
+
+        {/* Price Filter */}
+        <Grid size={{ xs: 12, sm: 4, md: 3 }}>
+          <TextField
+            label="Max Price (€)"
+            type="number"
+            fullWidth
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              setFilters({ ...filters, maxPrice: parseFloat(e.target.value) })
+            }
+          />
+          <Box>
+            <Typography gutterBottom id="non-linear-slider">
+              Price
+            </Typography>
+            <Slider
+              value={filters.maxPrice}
+              min={0}
+              step={1}
+              max={Math.max(...servers.map((server) => server.price))}
+              getAriaValueText={(v) => `${v}€`}
+              valueLabelFormat={(v) => `${v}€`}
+              onChange={(_e, value) => setFilters({ ...filters, maxPrice: value as number })}
+              valueLabelDisplay="auto"
             />
-          </Item>
+          </Box>
         </Grid>
-        <Grid size={{ xs: 12, sm:4, md: 3 }}>
-          <Item>
-            <TextField
-              label="Min RAM (GB)"
-              type="number"
-              fullWidth
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setFilters({ ...filters, minRAM: parseInt(e.target.value) })}
-            />
-          </Item>
+
+        {/* SSD/NVMe Disk Filters */}
+        <Grid size={{ xs: 12, sm: 4, md: 2 }}>
+          <TextField
+            label="Disk Type"
+            select
+            fullWidth
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              setFilters({ ...filters, diskType: e.target.value })
+            }
+          >
+            <MenuItem value="SSD">SSD</MenuItem>
+            <MenuItem value="NVMe">NVMe</MenuItem>
+          </TextField>
         </Grid>
-        <Grid size={{ xs: 12, sm:4, md: 3 }}>
-          <Item>
-            <TextField
-              label="Max Price (€)"
-              type="number"
-              fullWidth
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setFilters({ ...filters, maxPrice: parseFloat(e.target.value) })}
-            />
-          </Item>
+        <Grid size={{ xs: 12, sm: 4, md: 2 }}>
+          <TextField
+            label="Min Disk Size (GB)"
+            type="number"
+            fullWidth
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              setFilters({ ...filters, minDiskSize: parseInt(e.target.value) })
+            }
+          />
         </Grid>
-        <Grid size={{ xs: 12, sm:4, md: 3 }}>
-          <Item>
-            <TextField
-              label="Min Storage (GB)"
-              type="number"
-              fullWidth
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setFilters({ ...filters, minStorage: parseInt(e.target.value) })}
-            />
-          </Item>
+        <Grid size={{ xs: 12, sm: 4, md: 2 }}>
+          <TextField
+            label="Min Disk Count"
+            type="number"
+            fullWidth
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              setFilters({ ...filters, minDiskCount: parseInt(e.target.value) })
+            }
+          />
         </Grid>
-        <Grid size={{ xs: 12, sm:4, md: 2 }}>
-          <Item>
-            <TextField
-              label="Disk Type"
-              select
-              fullWidth
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setFilters({ ...filters, diskType: e.target.value })}
-            >
-              <MenuItem value="SSD">SSD</MenuItem>
-              <MenuItem value="HDD">HDD</MenuItem>
-            </TextField>
-          </Item>
+        <Grid size={{ xs: 12, sm: 4, md: 2 }}>
+          <TextField
+            label="Max Disk Count"
+            type="number"
+            fullWidth
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              setFilters({ ...filters, maxDiskCount: parseInt(e.target.value) })
+            }
+          />
         </Grid>
-        <Grid size={{ xs: 12, sm:4, md: 2 }}>
-          <Item>
-            <TextField
-              label="Disk Size (GB)"
-              type="number"
-              fullWidth
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setFilters({ ...filters, diskSize: parseInt(e.target.value) })}
-            />
-          </Item>
+
+        {/* HDD Disk Filters */}
+        <Grid size={{ xs: 12, sm: 4, md: 2 }}>
+          <TextField
+            label="Min HDD Size (GB)"
+            type="number"
+            fullWidth
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              setFilters({ ...filters, hddMinDiskSize: parseInt(e.target.value) })
+            }
+          />
         </Grid>
-        <Grid size={{ xs: 12, sm:4, md: 2 }}>
-          <Item>
-            <TextField
-              label="Disk Count"
-              type="number"
-              fullWidth
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setFilters({ ...filters, diskCount: parseInt(e.target.value) })}
-            />
-          </Item>
+        <Grid size={{ xs: 12, sm: 4, md: 2 }}>
+          <TextField
+            label="Min HDD Count"
+            type="number"
+            fullWidth
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              setFilters({ ...filters, hddMinDiskCount: parseInt(e.target.value) })
+            }
+          />
         </Grid>
+        <Grid size={{ xs: 12, sm: 4, md: 2 }}>
+          <TextField
+            label="Max HDD Count"
+            type="number"
+            fullWidth
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              setFilters({ ...filters, hddMaxDiskCount: parseInt(e.target.value) })
+            }
+          />
+        </Grid>
+
+        {/* Apply Filters Button */}
         <Grid size={{ xs: 12 }}>
-          <Item>
-            <Button variant="contained" onClick={applyFilters}>
-              Apply Filters
-            </Button>
-          </Item>
+          <Button variant="contained" onClick={applyFilters}>
+            Apply Filters
+          </Button>
         </Grid>
       </Grid>
     </Paper>
-  )
-}
+  );
+};
 
-export default FilterBar
+export default FilterBar;
