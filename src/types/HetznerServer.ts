@@ -41,3 +41,5 @@ type HetznerServer = {
     Amount: number
   }
 }
+
+export default HetznerServer
