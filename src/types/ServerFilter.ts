@@ -1,16 +1,24 @@
 type ServerFilter = {
-  cpu: string;
-  minRAM: number;
-  maxRAM: number;
-  maxPrice: number;
-  minStorage: number;
-  diskType: string;
-  minDiskSize: number;
-  minDiskCount: number;
-  maxDiskCount: number;
-  hddMinDiskSize: number;
-  hddMinDiskCount: number;
-  hddMaxDiskCount: number;
+  cpu: string
+  maxPrice: number
+
+  minRAM: number
+  maxRAM: number
+
+  minNvmeSize: number
+  maxNvmeSize: number
+  minNvmeCount: number
+  maxNvmeCount: number
+
+  minSataSize: number
+  maxSataSize: number
+  minSataCount: number
+  maxSataCount: number
+
+  minHddSize: number
+  maxHddSize: number
+  minHddCount: number
+  maxHddCount: number
 }
 
 export default ServerFilter

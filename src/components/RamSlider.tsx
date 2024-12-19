@@ -48,7 +48,7 @@ const NonLinearSlider: React.FC<NonLinearSliderProps> = ({ value, setValue }) =>
         }}
         valueLabelDisplay="auto"
         aria-labelledby="non-linear-slider"
-        marks
+        marks={true}
       />
     </Box>
   );
