@@ -28,10 +28,10 @@ const FilterBar: React.FC<FilterBarProps> = ({
   filters,
   initialFilters,
   setFilters,
-  setInitialFilters,
+  // setInitialFilters,
   servers,
   setFilteredServers,
-  calcInitialFilters,
+  // calcInitialFilters,
 }) => {
   const applyFilters = (newFilters: ServerFilter | undefined) => {
     let filtered = servers
