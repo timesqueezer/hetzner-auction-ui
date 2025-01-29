@@ -1,0 +1,2 @@
+[kubernetes_nodes]
+k8s-master ansible_host=k8s-master ansible_user=matz

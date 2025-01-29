@@ -1,0 +1,27 @@
+---
+- name: Deploy Hetzner Auction UI
+  hosts: kubernetes_nodes
+  become: yes
+  tasks:
+    - name: Load Docker image into containerd
+      command: ctr -n=k8s.io images import /path/to/hetzner-auction-ui.tar
+
+    - name: Apply Kubernetes namespace
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('file', 'kubernetes/namespace.yml') }}"
+
+    - name: Apply Kubernetes deployment
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('file', 'kubernetes/deployment.yml') }}"
+
+    - name: Apply Kubernetes service
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('file', 'kubernetes/service.yml') }}"
+
+    - name: Apply Kubernetes ingress
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('file', 'kubernetes/ingress.yml') }}"

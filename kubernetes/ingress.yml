@@ -1,20 +1,20 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: react-app
+  name: hetzner-auction-ui
   namespace: react-apps
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   ingressClassName: nginx
   rules:
-  - host: react-app.local
+  - host: haui.matzradlof.info
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: react-app
+            name: hetzner-auction-ui
             port:
               number: 80
