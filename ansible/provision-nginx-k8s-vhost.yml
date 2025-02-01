@@ -1,0 +1,8 @@
+- name: Provision k8s-specific nginx vhost
+  hosts: nginx
+  become: true
+  roles:
+    - nginx_k8s_vhost
+  vars:
+    - server_name: haui.matzradloff.info
+
