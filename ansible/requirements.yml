@@ -1,0 +1,3 @@
+- src: git+ssh://git@gitlab.com/timesqueezer/ga_infrastructure.git
+  version: master
+  name: ga.infrastructure
