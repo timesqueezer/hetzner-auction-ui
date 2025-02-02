@@ -1,4 +1,7 @@
-[kubernetes_nodes]
+[k8s_master_nodes]
 k8s-master ansible_host=k8s-master ansible_user=matz
 [nginx_hosts]
 nginx ansible_host=nginx ansible_user=matz
+[k8s_worker_nodes]
+k8s-worker-1 ansible_host=k8s-worker-1 ansible_user=matz
+k8s-worker-2 ansible_host=k8s-worker-2 ansible_user=matz

@@ -1,3 +1,4 @@
-- src: git+ssh://git@gitlab.com/timesqueezer/ga_infrastructure.git
-  version: master
-  name: ga.infrastructure
+collections:
+  - name: git+ssh://git@gitlab.com/timesqueezer/ga_infrastructure.git
+    type: git
+    version: master

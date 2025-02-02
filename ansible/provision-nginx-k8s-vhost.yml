@@ -4,7 +4,6 @@
   collections:
     - ga.infrastructure
   roles:
-    - ga.infrastructure.nginx_k8s_vhost
+    - nginx_k8s_vhost
   vars:
     server_name: haui.matzradloff.info
-
