@@ -1,27 +1,41 @@
 ---
 - name: Deploy Hetzner Auction UI
-  hosts: kubernetes_nodes
-  become: yes
+  hosts: k8s_worker_nodes,k8s_master_nodes
+  become: true
   tasks:
+    # - name: Rsync hetzner-auction-ui.tar to all nodes
+    #   ansible.posix.synchronize:
+    #     src: "{{ lookup('file', '../hetzner-auction-ui.tar') }}"
+    #     dest: /tmp/hetzner-auction-ui.tar
+    #     mode: pull
+
     - name: Load Docker image into containerd
-      command: ctr -n=k8s.io images import /path/to/hetzner-auction-ui.tar
+      ansible.builtin.command: ctr -n=k8s.io images import /tmp/hetzner-auction-ui.tar
 
     - name: Apply Kubernetes namespace
       kubernetes.core.k8s:
         state: present
         definition: "{{ lookup('file', 'kubernetes/namespace.yml') }}"
+      delegate_to: k8s-master
+      run_once: true
 
     - name: Apply Kubernetes deployment
       kubernetes.core.k8s:
         state: present
         definition: "{{ lookup('file', 'kubernetes/deployment.yml') }}"
+      delegate_to: k8s-master
+      run_once: true
 
     - name: Apply Kubernetes service
       kubernetes.core.k8s:
         state: present
         definition: "{{ lookup('file', 'kubernetes/service.yml') }}"
+      delegate_to: k8s-master
+      run_once: true
 
     - name: Apply Kubernetes ingress
       kubernetes.core.k8s:
         state: present
         definition: "{{ lookup('file', 'kubernetes/ingress.yml') }}"
+      delegate_to: k8s-master
+      run_once: true

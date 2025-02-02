@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from "axios"
-import { Container, LinearProgress } from "@mui/material"
+import { Container, LinearProgress, Grid2 as Grid } from "@mui/material"
 
 import './App.css'
 
@@ -69,23 +69,30 @@ function App() {
     <Container maxWidth="lg">
       <AppBar />
       <div style={{ marginTop: '2rem' }}>
-        <FilterBar
-          filters={filters}
-          initialFilters={initialFilters}
-          setFilters={setFilters}
-          setInitialFilters={setInitialFilters}
-          servers={servers}
-          setFilteredServers={setFilteredServers}
-          calcInitialFilters={calcInitialFilters}
-        />
-
-        <div style={{ marginTop: '2rem' }}>
-          {loading && <LinearProgress />}
-          {
-            !loading &&
-            <ServerTable servers={filteredServers} />
-          }
-        </div>
+        <Grid container columnSpacing={8}>
+          <Grid size={{ xs: 12, sm: 4, md: 4 }}>
+            <div style={{ position: 'fixed', top: '0' }}>
+              <FilterBar
+                filters={filters}
+                initialFilters={initialFilters}
+                setFilters={setFilters}
+                setInitialFilters={setInitialFilters}
+                servers={servers}
+                setFilteredServers={setFilteredServers}
+                calcInitialFilters={calcInitialFilters}
+              />
+            </div>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 8, md: 8 }}>
+            <div style={{ marginTop: '2rem' }}>
+              {loading && <LinearProgress />}
+              {
+                !loading &&
+                <ServerTable servers={filteredServers} />
+              }
+            </div>
+          </Grid>
+        </Grid>
       </div>
     </Container>
   )

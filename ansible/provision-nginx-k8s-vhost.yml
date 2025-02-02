@@ -1,9 +1,11 @@
 - name: Provision k8s-specific nginx vhost
   hosts: nginx
   become: true
-  collections:
-    - ga.infrastructure
   roles:
-    - nginx_k8s_vhost
+    - ga.infrastructure.certbot_domain
+    - ga.infrastructure.nginx_k8s_vhost
   vars:
     server_name: haui.matzradloff.info
+    certbot_domain: haui.matzradloff.info
+    existing_cert_domain_name: matzradloff.info
+    use_existing_cert: true

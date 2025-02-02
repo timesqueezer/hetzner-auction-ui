@@ -10,7 +10,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-  - host: haui.matzradlof.info
+  - host: haui.matzradloff.info
     http:
       paths:
       - path: /
