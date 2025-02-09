@@ -23,15 +23,13 @@ type FilterBarProps = {
   calcInitialFilters: (serverList: HetznerServer[]) => ServerFilter
 }
 
-const FilterBar: React.FC<FilterBarProps> = ({
+const FilterBar = ({
   filters,
   initialFilters,
   setFilters,
-  // setInitialFilters,
   servers,
   setFilteredServers,
-  // calcInitialFilters,
-}) => {
+}: FilterBarProps) => {
   const applyFilters = (newFilters: ServerFilter | undefined) => {
     let filtered = servers
 
@@ -40,19 +38,19 @@ const FilterBar: React.FC<FilterBarProps> = ({
     if (newFilters && initialFilters) {
       // CPU filter
       if (newFilters.cpu !== initialFilters.cpu) {
-        filtered = filtered.filter((server) =>
+        filtered = filtered.filter((server: HetznerServer) =>
           server.cpu.toLowerCase().includes(newFilters.cpu!.toLowerCase())
         )
       }
 
       // Price filter
       if (newFilters.maxPrice !== initialFilters.maxPrice) {
-        filtered = filtered.filter((server) => server.price <= newFilters.maxPrice)
+        filtered = filtered.filter((server: HetznerServer) => server.price <= newFilters.maxPrice)
       }
 
       // RAM filter
       if ((newFilters.minRAM !== initialFilters.minRAM) || (newFilters.maxRAM !== initialFilters.maxRAM)) {
-        filtered = filtered.filter((server) => {
+        filtered = filtered.filter((server: HetznerServer) => {
           const ram = server.ram_size
           return (
             (!newFilters.minRAM || ram >= newFilters.minRAM) &&
@@ -61,268 +59,171 @@ const FilterBar: React.FC<FilterBarProps> = ({
         })
       }
 
-      // NVME disk filters
-      if (
-        (newFilters.minNvmeSize !== initialFilters.minNvmeSize) ||
-        (newFilters.maxNvmeSize !== initialFilters.maxNvmeSize) ||
-        (newFilters.minNvmeCount !== initialFilters.minNvmeCount) ||
-        (newFilters.maxNvmeCount !== initialFilters.maxNvmeCount)
-      ) {
-        filtered = filtered.filter((server) => {
-          const disks = server.serverDiskData.nvme
-          const matchingDisks = disks.filter((size) =>
-            size >= newFilters.minNvmeSize
-            && size <= newFilters.maxNvmeSize
-          )
-          const diskCount = matchingDisks.length
+      // Handle disk filters
+      const handleDiskFilter = (server: HetznerServer, type: 'nvme' | 'sata' | 'hdd') => {
+        const disks = server.serverDiskData[type]
+        const minSize = newFilters[`min${type.toUpperCase()}Size` as keyof ServerFilter] as number
+        const maxSize = newFilters[`max${type.toUpperCase()}Size` as keyof ServerFilter] as number
+        const minCount = newFilters[`min${type.toUpperCase()}Count` as keyof ServerFilter] as number
+        const maxCount = newFilters[`max${type.toUpperCase()}Count` as keyof ServerFilter] as number
 
-          return (
-            diskCount >= (newFilters.minNvmeCount || 0) &&
-            diskCount <= (newFilters.maxNvmeCount || Infinity)
-          )
-        })
+        const matchingDisks = disks.filter((size: number) =>
+          size >= minSize && size <= maxSize
+        )
+        const diskCount = matchingDisks.length
+
+        return (
+          diskCount >= (minCount || 0) &&
+          diskCount <= (maxCount || Infinity)
+        )
       }
 
-      // SATA disk filters
-      if (
-        (newFilters.minSataSize !== initialFilters.minSataSize) ||
-        (newFilters.maxSataSize !== initialFilters.maxSataSize) ||
-        (newFilters.minSataCount !== initialFilters.minSataCount) ||
-        (newFilters.maxSataCount !== initialFilters.maxSataCount)
-      ) {
-        filtered = filtered.filter((server) => {
-          const disks = server.serverDiskData.sata
-          const matchingDisks = disks.filter((size) =>
-            size >= newFilters.minSataSize
-            && size <= newFilters.maxSataSize
-          )
-          const diskCount = matchingDisks.length
-
-          return (
-            diskCount >= (newFilters.minSataCount || 0) &&
-            diskCount <= (newFilters.maxSataCount || Infinity)
-          )
-        })
-      }
-
-      // HDD disk filters
-      if (
-        (newFilters.minHddSize !== initialFilters.minHddSize) ||
-        (newFilters.maxHddSize !== initialFilters.maxHddSize) ||
-        (newFilters.minHddCount !== initialFilters.minHddCount) ||
-        (newFilters.maxHddCount !== initialFilters.maxHddCount)
-      ) {
-        filtered = filtered.filter((server) => {
-          const disks = server.serverDiskData.hdd
-          const matchingDisks = disks.filter((size) =>
-            size >= newFilters.minHddSize
-            && size <= newFilters.maxHddSize
-          )
-          const diskCount = matchingDisks.length
-
-          return (
-            diskCount >= (newFilters.minHddCount || 0) &&
-            diskCount <= (newFilters.maxHddCount || Infinity)
+      // Apply disk filters
+      if (Object.keys(newFilters).some(key => key.match(/^(min|max)(Nvme|Sata|Hdd)(Size|Count)$/))) {
+        filtered = filtered.filter((server: HetznerServer) => {
+          return ['nvme', 'sata', 'hdd'].every(type => 
+            handleDiskFilter(server, type as 'nvme' | 'sata' | 'hdd')
           )
         })
       }
     }
 
     setFilteredServers(filtered)
-    // const newInitialFilters = calcInitialFilters(filtered)
-    // setInitialFilters(newInitialFilters)
   }
 
   const debouncedApplyFilters = debounce(applyFilters, 250)
 
-  const setAndApplyFiltersDebounced = (newFilters: ServerFilter | undefined) => {
-    if (newFilters) {
-      setFilters(newFilters)
-      debouncedApplyFilters(newFilters)
-    }
+  const setAndApplyFiltersDebounced = (newFilters: ServerFilter) => {
+    setFilters(newFilters)
+    debouncedApplyFilters(newFilters)
   }
 
   return (
-    <Paper sx={{ p: 4 }}>
+    <Paper sx={{ 
+      p: { xs: 2, sm: 3 },
+      height: '100%',
+      overflow: 'auto',
+      '::-webkit-scrollbar': {
+        width: '8px',
+      },
+      '::-webkit-scrollbar-thumb': {
+        backgroundColor: 'divider',
+        borderRadius: '4px',
+      },
+    }}>
       <TextField
         label="CPU"
         fullWidth
+        size="small"
+        value={filters.cpu || ''}
+        sx={{ mb: 2 }}
         onChange={
           (e: ChangeEvent<HTMLInputElement>) =>
             setAndApplyFiltersDebounced({ ...filters, cpu: e.target.value })
         }
       />
-      <Box>
-        <Typography gutterBottom>
+      <Box sx={{ mb: 2 }}>
+        <Typography variant="body2" gutterBottom>
           Price
         </Typography>
         <Slider
-          value={filters.maxPrice}
+          value={filters.maxPrice || 0}
           min={0}
           step={1}
           max={initialFilters.maxPrice}
-          getAriaValueText={(v) => `${v}€`}
-          valueLabelFormat={(v) => `${v}€`}
-          onChange={(_e, value) => setAndApplyFiltersDebounced({ ...filters, maxPrice: value as number })}
-          valueLabelDisplay="auto"
-          marks={[
-            { value: 0, label: '0€' },
-            { value: initialFilters.maxPrice, label: `${initialFilters.maxPrice}€` },
-          ]}
-        />
-      </Box>
-      <RamSlider
-        value={[filters.minRAM || 0, filters.maxRAM || 0]}
-        setValue={
-          (value: number[]) => setAndApplyFiltersDebounced({ ...filters, minRAM: value[0], maxRAM: value[1] })
-        }
-      />
-      <Box>
-        <Typography gutterBottom>
-          NVMe Disk Size
-        </Typography>
-        <Slider
-          value={[filters.minNvmeSize, filters.maxNvmeSize]}
-          min={0}
-          max={initialFilters.maxNvmeSize}
-          step={1000}
-          getAriaValueText={(v) => `${v}GB`}
-          valueLabelFormat={(v) => `${v}GB`}
-          onChange={
-            (_e, value) =>
-              Array.isArray(value) && value.length === 2
-                ? setAndApplyFiltersDebounced({ ...filters, minNvmeSize: value[0] as number, maxNvmeSize: value[1] as number })
-                : null
+          getAriaValueText={(v: number) => `${v}€`}
+          valueLabelFormat={(v: number) => `${v}€`}
+          onChange={(_e: Event, value: number | number[]) => 
+            setAndApplyFiltersDebounced({ ...filters, maxPrice: value as number })
           }
           valueLabelDisplay="auto"
-          marks={[
-            { value: 0, label: '0GB' },
-            { value: initialFilters.maxNvmeSize, label: `${initialFilters.maxNvmeSize}GB` },
-          ]}
+          size="small"
+          marks={true}
         />
       </Box>
-      <Box>
-        <Typography gutterBottom>
-          NVMe Disk Count
-        </Typography>
-        <Slider
-          value={[filters.minNvmeCount, filters.maxNvmeCount]}
-          min={0}
-          max={initialFilters.maxNvmeCount}
-          step={1}
-          getAriaValueText={(v) => `${v}`}
-          valueLabelFormat={(v) => `${v}`}
-          onChange={
-            (_e, value) =>
-              Array.isArray(value) && value.length === 2
-                ? setAndApplyFiltersDebounced({ ...filters, minNvmeCount: value[0] as number, maxNvmeCount: value[1] as number })
-                : null
+      <Box sx={{ mb: 2 }}>
+        <RamSlider
+          value={[filters.minRAM || 0, filters.maxRAM || 0]}
+          setValue={
+            (value: number[]) => setAndApplyFiltersDebounced({ ...filters, minRAM: value[0], maxRAM: value[1] })
           }
-          valueLabelDisplay="auto"
-          marks={[
-            { value: 0, label: '0' },
-            { value: initialFilters.maxNvmeCount, label: `${initialFilters.maxNvmeCount}` },
-          ]}
         />
       </Box>
-      <Box>
-        <Typography gutterBottom>
-          Sata Disk Size
-        </Typography>
-        <Slider
-          value={[filters.minSataSize, filters.maxSataSize]}
-          min={0}
-          max={initialFilters.maxSataSize}
-          step={1000}
-          getAriaValueText={(v) => `${v}GB`}
-          valueLabelFormat={(v) => `${v}GB`}
-          onChange={
-            (_e, value) =>
-              Array.isArray(value) && value.length === 2
-                ? setAndApplyFiltersDebounced({ ...filters, minSataSize: value[0] as number, maxSataSize: value[1] as number })
-                : null
-          }
-          valueLabelDisplay="auto"
-          marks={[
-            { value: 0, label: '0GB' },
-            { value: initialFilters.maxSataSize, label: `${initialFilters.maxSataSize}GB` },
-          ]}
-        />
-      </Box>
-      <Box>
-        <Typography gutterBottom>
-          Sata Disk Count
-        </Typography>
-        <Slider
-          value={[filters.minSataCount, filters.maxSataCount]}
-          min={0}
-          max={initialFilters.maxSataCount}
-          step={1}
-          getAriaValueText={(v) => `${v}`}
-          valueLabelFormat={(v) => `${v}`}
-          onChange={
-            (_e, value) =>
-              Array.isArray(value) && value.length === 2
-                ? setAndApplyFiltersDebounced({ ...filters, minSataCount: value[0] as number, maxSataCount: value[1] as number })
-                : null
-          }
-          valueLabelDisplay="auto"
-          marks={[
-            { value: 0, label: '0' },
-            { value: initialFilters.maxSataCount, label: `${initialFilters.maxSataCount}` },
-          ]}
-        />
-      </Box>
-      <Box>
-        <Typography gutterBottom>
-          HDD Disk Size
-        </Typography>
-        <Slider
-          value={[filters.minHddSize, filters.maxHddSize]}
-          min={0}
-          max={initialFilters.maxHddSize}
-          step={1000}
-          getAriaValueText={(v) => `${v / 1000}TB`}
-          valueLabelFormat={(v) => `${v / 1000}TB`}
-          onChange={
-            (_e, value) =>
-              Array.isArray(value) && value.length === 2
-                ? setAndApplyFiltersDebounced({ ...filters, minHddSize: value[0] as number, maxHddSize: value[1] as number })
-                : null
-          }
-          valueLabelDisplay="auto"
-          marks={[
-            { value: 0, label: '0TB' },
-            { value: initialFilters.maxHddSize, label: `${initialFilters.maxHddSize / 1000}TB` },
-          ]}
-        />
-      </Box>
-      <Box>
-        <Typography gutterBottom>
-          HDD Disk Count
-        </Typography>
-        <Slider
-          value={[filters.minHddCount, filters.maxHddCount]}
-          min={0}
-          max={initialFilters.maxHddCount}
-          step={1}
-          getAriaValueText={(v) => `${v}`}
-          valueLabelFormat={(v) => `${v}`}
-          onChange={
-            (_e, value) =>
-              Array.isArray(value) && value.length === 2
-                ? setAndApplyFiltersDebounced({ ...filters, minHddCount: value[0] as number, maxHddCount: value[1] as number })
-                : null
-          }
-          valueLabelDisplay="auto"
-          marks={[
-            { value: 0, label: '0' },
-            { value: initialFilters.maxHddCount, label: `${initialFilters.maxHddCount}` },
-          ]}
-        />
-      </Box>
+      
+      {/* Disk sections with consistent spacing */}
+      {['NVMe', 'SATA', 'HDD'].map((type) => {
+        const minSizeKey = `min${type}Size` as keyof ServerFilter;
+        const maxSizeKey = `max${type}Size` as keyof ServerFilter;
+        const minCountKey = `min${type}Count` as keyof ServerFilter;
+        const maxCountKey = `max${type}Count` as keyof ServerFilter;
+        
+        const minSize = (filters[minSizeKey] || 0) as number;
+        const maxSize = (filters[maxSizeKey] || initialFilters[maxSizeKey] || 0) as number;
+        const minCount = (filters[minCountKey] || 0) as number;
+        const maxCount = (filters[maxCountKey] || initialFilters[maxCountKey] || 0) as number;
+        
+        return (
+          <Box key={type} sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" sx={{ mb: 2 }}>
+              {type} Disks
+            </Typography>
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Size
+              </Typography>
+              <Slider
+                value={[minSize, maxSize]}
+                min={0}
+                max={initialFilters[maxSizeKey] as number}
+                step={1000}
+                getAriaValueText={(v: number) => type === 'HDD' ? `${v / 1000}TB` : `${v}GB`}
+                valueLabelFormat={(v: number) => type === 'HDD' ? `${v / 1000}TB` : `${v}GB`}
+                onChange={
+                  (_e: Event, value: number | number[]) =>
+                    Array.isArray(value) && value.length === 2
+                      ? setAndApplyFiltersDebounced({
+                          ...filters,
+                          [minSizeKey]: value[0],
+                          [maxSizeKey]: value[1]
+                        })
+                      : null
+                }
+                valueLabelDisplay="auto"
+                size="small"
+                marks={true}
+              />
+            </Box>
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Count
+              </Typography>
+              <Slider
+                value={[minCount, maxCount]}
+                min={0}
+                max={initialFilters[maxCountKey] as number}
+                step={1}
+                getAriaValueText={(v: number) => `${v}`}
+                valueLabelFormat={(v: number) => `${v}`}
+                onChange={
+                  (_e: Event, value: number | number[]) =>
+                    Array.isArray(value) && value.length === 2
+                      ? setAndApplyFiltersDebounced({
+                          ...filters,
+                          [minCountKey]: value[0],
+                          [maxCountKey]: value[1]
+                        })
+                      : null
+                }
+                valueLabelDisplay="auto"
+                size="small"
+                marks={true}
+              />
+            </Box>
+          </Box>
+        );
+      })}
     </Paper>
-  )
-}
+  );
+};
 
-export default FilterBar
+export default FilterBar;

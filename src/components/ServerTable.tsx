@@ -128,7 +128,15 @@ const ServerTable: React.FC<ServerTableProps> = ({ servers }) => {
         {table.getHeaderGroups().map((headerGroup) => (
           <TableRow key={headerGroup.id}>
             {headerGroup.headers.map((header) => (
-              <TableCell key={header.id} colSpan={header.colSpan}>
+              <TableCell 
+                key={header.id} 
+                colSpan={header.colSpan}
+                sx={{ 
+                  backgroundColor: 'background.paper',
+                  borderBottom: 2,
+                  borderColor: 'divider'
+                }}
+              >
                 {header.isPlaceholder
                   ? null
                   : flexRender(
@@ -147,7 +155,14 @@ const ServerTable: React.FC<ServerTableProps> = ({ servers }) => {
     return (
       <React.Fragment>
         {row.getVisibleCells().map((cell) => (
-          <TableCell key={cell.id}>
+          <TableCell 
+            key={cell.id}
+            sx={{
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }}
+          >
             {flexRender(cell.column.columnDef.cell, cell.getContext())}
           </TableCell>
         ))}
@@ -156,12 +171,19 @@ const ServerTable: React.FC<ServerTableProps> = ({ servers }) => {
   }
 
   return (
-    <Paper style={{ height: 'calc(100vh - 25rem)', width: '100%' }}>
+    <Paper sx={{ 
+      height: '100%',
+      width: '100%',
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column'
+    }}>
       <TableVirtuoso
         data={table.getRowModel().rows}
         components={VirtuosoTableComponents}
         fixedHeaderContent={fixedHeaderContent}
         itemContent={rowContent}
+        style={{ flex: 1 }}
       />
     </Paper>
   );
