@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useCallback } from "react";
 import {
   useReactTable,
   flexRender,
@@ -45,7 +45,8 @@ function getCellInfo(info: any) {
 
 const columnHelper = createColumnHelper<HetznerServer>();
 
-const defaultColumns = [
+// Move columns definition outside component to prevent recreation
+const columns = [
   columnHelper.group({
     id: "Server Data",
     header: () => <span>Server Data</span>,
@@ -92,38 +93,37 @@ const defaultColumns = [
   }),
 ];
 
+const VirtuosoTableComponents: TableComponents<Row<HetznerServer>> = {
+  Scroller: React.forwardRef<HTMLDivElement>((props, ref) => (
+    <TableContainer component={Paper} {...props} ref={ref} />
+  )),
+  Table: (props) => (
+    <Table
+      {...props}
+      stickyHeader
+      sx={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}
+    />
+  ),
+  TableHead: React.forwardRef<HTMLTableSectionElement>((props, ref) => (
+    <TableHead {...props} ref={ref} />
+  )),
+  TableRow,
+  TableBody: React.forwardRef<HTMLTableSectionElement>((props, ref) => (
+    <TableBody {...props} ref={ref} />
+  )),
+};
+
 const ServerTable: React.FC<ServerTableProps> = ({ servers }) => {
-  const data = React.useMemo(() => servers, [servers]);
+  const data = useMemo(() => servers, [servers]);
 
   const table = useReactTable({
     data,
-    columns: defaultColumns,
+    columns,
     getCoreRowModel: getCoreRowModel(),
   })
 
-  const VirtuosoTableComponents: TableComponents<Row<HetznerServer>> = {
-    Scroller: React.forwardRef<HTMLDivElement>((props, ref) => (
-      <TableContainer component={Paper} {...props} ref={ref} />
-    )),
-    Table: (props) => (
-      <Table
-        {...props}
-        stickyHeader
-        sx={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}
-      />
-    ),
-    TableHead: React.forwardRef<HTMLTableSectionElement>((props, ref) => (
-      <TableHead {...props} ref={ref} />
-    )),
-    TableRow,
-    TableBody: React.forwardRef<HTMLTableSectionElement>((props, ref) => (
-      <TableBody {...props} ref={ref} />
-    )),
-  };
-
-
-  function fixedHeaderContent() {
-    return (
+  const fixedHeaderContent = useMemo(() => {
+    return () => (
       <>
         {table.getHeaderGroups().map((headerGroup) => (
           <TableRow key={headerGroup.id}>
@@ -149,9 +149,9 @@ const ServerTable: React.FC<ServerTableProps> = ({ servers }) => {
         ))}
       </>
     )
-  }
+  }, [table]);
 
-  function rowContent(_index: number, row: Row<HetznerServer>) {
+  const rowContent = useCallback((_index: number, row: Row<HetznerServer>) => {
     return (
       <React.Fragment>
         {row.getVisibleCells().map((cell) => (
@@ -168,7 +168,7 @@ const ServerTable: React.FC<ServerTableProps> = ({ servers }) => {
         ))}
       </React.Fragment>
     );
-  }
+  }, []);
 
   return (
     <Paper sx={{ 
@@ -189,4 +189,4 @@ const ServerTable: React.FC<ServerTableProps> = ({ servers }) => {
   );
 };
 
-export default ServerTable;
+export default React.memo(ServerTable);

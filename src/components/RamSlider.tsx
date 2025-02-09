@@ -1,57 +1,87 @@
 import * as React from 'react';
+import { useCallback, useMemo } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Slider from '@mui/material/Slider';
 
 function valueLabelFormat(value: number) {
-  const units = ['GB', 'TB'];
-
-  let unitIndex = 0;
-  let scaledValue = value;
-
-  while (scaledValue >= 1024 && unitIndex < units.length - 1) {
-    unitIndex += 1;
-    scaledValue /= 1024;
+  if (value >= 1024) {
+    return `${(value / 1024).toFixed(1)}TB`;
   }
-
-  return `${scaledValue} ${units[unitIndex]}`;
+  return `${value}GB`;
 }
 
-function calculateValue(value: number) {
-  return 2 ** value;
+// Convert slider value (0-100) to RAM value
+function scaleValue(value: number, maxValue: number): number {
+  const minValue = 8;
+  const exp = Math.log2(maxValue / minValue);
+  const scaled = minValue * Math.pow(2, (exp * value) / 100);
+  
+  if (scaled < 64) {
+    return Math.max(8, Math.round(scaled / 8) * 8);
+  }
+  return Math.pow(2, Math.round(Math.log2(scaled)));
+}
+
+// Convert RAM value back to slider value (0-100)
+function unscaleValue(value: number, maxValue: number): number {
+  const minValue = 8;
+  const exp = Math.log2(maxValue / minValue);
+  return (Math.log2(Math.max(minValue, value) / minValue) * 100) / exp;
 }
 
 type NonLinearSliderProps = {
   value: number[]
   setValue: (value: number[]) => void
+  maxValue: number
 }
 
-const NonLinearSlider: React.FC<NonLinearSliderProps> = ({ value, setValue }) => {
+const NonLinearSlider: React.FC<NonLinearSliderProps> = ({ value, setValue, maxValue }) => {
+  // Convert actual RAM values to slider values (0-100)
+  const sliderValue = useMemo(() => 
+    value.map(v => Math.max(0, Math.min(100, unscaleValue(Math.max(8, v), maxValue)))),
+    [value, maxValue]
+  );
+
+  const handleChange = useCallback((_e: Event, newValue: number | number[]) => {
+    if (Array.isArray(newValue)) {
+      const ramValues = newValue.map(v => scaleValue(v, maxValue));
+      setValue(ramValues);
+    }
+  }, [maxValue, setValue]);
+
+  const marks = useMemo(() => {
+    const result = [{ value: 0, label: '8GB' }];
+    let markValue = 16;
+    while (markValue <= maxValue) {
+      result.push({
+        value: unscaleValue(markValue, maxValue),
+        label: valueLabelFormat(markValue)
+      });
+      markValue *= 2;
+    }
+    return result;
+  }, [maxValue]);
 
   return (
     <Box>
-      <Typography gutterBottom id="non-linear-slider">
-        Memory: {valueLabelFormat(calculateValue(value[0]))} - {valueLabelFormat(calculateValue(value[1]))}
+      <Typography variant="body2" gutterBottom>
+        Memory: {valueLabelFormat(value[0])} - {valueLabelFormat(value[1])}
       </Typography>
       <Slider
-        value={[Math.log2(value[0]), Math.log2(value[1])]}
+        value={sliderValue}
         min={0}
-        step={1}
-        max={10}
-        scale={calculateValue}
-        getAriaValueText={valueLabelFormat}
-        valueLabelFormat={valueLabelFormat}
-        onChange={(_e, value) => {
-          if (Array.isArray(value)) {
-            setValue(value.map(calculateValue) as number[])
-          }
-        }}
+        max={100}
+        onChange={handleChange}
+        getAriaValueText={(v: number) => valueLabelFormat(scaleValue(v, maxValue))}
+        valueLabelFormat={(v: number) => valueLabelFormat(scaleValue(v, maxValue))}
         valueLabelDisplay="auto"
-        aria-labelledby="non-linear-slider"
-        marks={true}
+        size="small"
+        marks={marks}
+        disableSwap
       />
     </Box>
   );
 }
 
-export default NonLinearSlider
+export default React.memo(NonLinearSlider);
