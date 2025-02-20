@@ -1,6 +1,6 @@
 ---
 - name: Deploy Hetzner Auction UI
-  hosts: k8s_worker_nodes,k8s_master_nodes
+  hosts: k8s_workers,k8s_masters
   become: true
   tasks:
     # - name: Rsync hetzner-auction-ui.tar to all nodes
@@ -10,32 +10,35 @@
     #     mode: pull
 
     - name: Load Docker image into containerd
-      ansible.builtin.command: ctr -n=k8s.io images import /tmp/hetzner-auction-ui.tar
+      ga.infrastructure.containerd_image:
+        archive: /tmp/hetzner-auction-ui.tar
+        name: hetzner-auction-ui
+        namespace: k8s.io
 
-    - name: Apply Kubernetes namespace
+    - name: Apply Kubernetes namespace # noqa: run-once[task]
       kubernetes.core.k8s:
         state: present
         definition: "{{ lookup('file', 'kubernetes/namespace.yml') }}"
-      delegate_to: k8s-master
+      delegate_to: "{{ groups['k8s_masters'][0] }}"
       run_once: true
 
-    - name: Apply Kubernetes deployment
+    - name: Apply Kubernetes deployment # noqa: run-once[task]
       kubernetes.core.k8s:
         state: present
         definition: "{{ lookup('file', 'kubernetes/deployment.yml') }}"
-      delegate_to: k8s-master
+      delegate_to: "{{ groups['k8s_masters'][0] }}"
       run_once: true
 
-    - name: Apply Kubernetes service
+    - name: Apply Kubernetes service # noqa: run-once[task]
       kubernetes.core.k8s:
         state: present
         definition: "{{ lookup('file', 'kubernetes/service.yml') }}"
-      delegate_to: k8s-master
+      delegate_to: "{{ groups['k8s_masters'][0] }}"
       run_once: true
 
-    - name: Apply Kubernetes ingress
+    - name: Apply Kubernetes ingress # noqa: run-once[task]
       kubernetes.core.k8s:
         state: present
         definition: "{{ lookup('file', 'kubernetes/ingress.yml') }}"
-      delegate_to: k8s-master
+      delegate_to: "{{ groups['k8s_masters'][0] }}"
       run_once: true

@@ -15,3 +15,6 @@ deploy:
 	make docker-build
 	make docker-save
 	ansible-playbook -i ansible/hosts ansible/deploy.yml
+
+refresh-ansible-collections:
+	ansible-galaxy collection install -r ansible/requirements.yml --force
