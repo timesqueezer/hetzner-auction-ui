@@ -3,8 +3,15 @@ kind: Deployment
 metadata:
   name: hetzner-auction-ui
   namespace: hetzner-auction-ui
+  labels:
+    app: hetzner-auction-ui
 spec:
-  replicas: 1
+  replicas: 2  # Run multiple replicas for high availability
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
   selector:
     matchLabels:
       app: hetzner-auction-ui
@@ -16,6 +23,26 @@ spec:
       containers:
       - name: hetzner-auction-ui
         image: hetzner-auction-ui:1.0.0
-        imagePullPolicy: Never
+        imagePullPolicy: Never  # You might want to change this for production
         ports:
         - containerPort: 80
+          name: http
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
