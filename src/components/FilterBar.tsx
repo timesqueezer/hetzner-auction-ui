@@ -1,4 +1,4 @@
-import { debounce } from 'lodash-es'
+import { debounce, DebouncedFunc } from 'lodash-es'
 import {
   TextField,
   Paper,
@@ -6,7 +6,7 @@ import {
   Box,
   Typography,
 } from '@mui/material'
-import { ChangeEvent, useCallback, useRef, useLayoutEffect, useState } from 'react'
+import { ChangeEvent, useCallback, useMemo, useRef, useEffect } from 'react'
 
 import RamSlider from './RamSlider'
 import HetznerServer from '../types/HetznerServer'
@@ -16,10 +16,9 @@ type FilterBarProps = {
   filters: ServerFilter
   initialFilters: ServerFilter
   setFilters: (filters: ServerFilter) => void
-  setInitialFilters: (filters: ServerFilter) => void
   servers: HetznerServer[]
   setFilteredServers: (servers: HetznerServer[]) => void
-  calcInitialFilters: (serverList: HetznerServer[]) => ServerFilter
+  calcInitialFilters: (serverList: HetznerServer[]) => void
 }
 
 const FilterBar = ({
@@ -29,87 +28,113 @@ const FilterBar = ({
   servers,
   setFilteredServers,
 }: FilterBarProps) => {
-  // Create a ref to store the latest filter function
-  const applyFiltersRef = useRef((newFilters: ServerFilter) => {
-    let filtered = [...servers]
-
-    if (newFilters.cpu) {
-      filtered = filtered.filter((server) =>
-        server.cpu.toLowerCase().includes(newFilters.cpu.toLowerCase())
-      )
-    }
-
-    // Price filter
-    filtered = filtered.filter((server) => server.price <= newFilters.maxPrice)
-
-    // RAM filter
-    if (newFilters.minRAM || newFilters.maxRAM) {
-      filtered = filtered.filter((server) => {
-        const ram = server.ram_size
-        return (!newFilters.minRAM || ram >= newFilters.minRAM) &&
-               (!newFilters.maxRAM || ram <= newFilters.maxRAM)
-      })
-    }
-
-    // Handle disk filters
-    const diskTypes = ['nvme', 'sata', 'hdd'] as const
-    filtered = filtered.filter(server => 
-      diskTypes.every(type => {
-        const disks = server.serverDiskData[type]
-        const minSizeKey = `min${type.toUpperCase()}Size` as keyof ServerFilter
-        const maxSizeKey = `max${type.toUpperCase()}Size` as keyof ServerFilter
-        const minCountKey = `min${type.toUpperCase()}Count` as keyof ServerFilter
-        const maxCountKey = `max${type.toUpperCase()}Count` as keyof ServerFilter
-
-        const minSize = newFilters[minSizeKey] as number
-        const maxSize = newFilters[maxSizeKey] as number
-        const minCount = newFilters[minCountKey] as number
-        const maxCount = newFilters[maxCountKey] as number
-
-        if (disks.length === 0) {
-          return !minSize && !minCount
-        }
-
-        const matchingDisks = disks.filter(size => 
-          (!minSize || size >= minSize) && (!maxSize || size <= maxSize)
-        )
-
-        return matchingDisks.length >= (minCount || 0) && 
-               matchingDisks.length <= (maxCount || Infinity)
-      })
-    )
-
-    setFilteredServers(filtered)
+  console.log('FilterBar: Rendering', {
+    hasFilters: !!filters,
+    hasInitialFilters: !!initialFilters,
+    serverCount: servers.length
   })
 
-  // Create a stable debounced function using useRef and useLayoutEffect
-  const debouncedApplyFiltersRef = useRef(
-    debounce((newFilters: ServerFilter) => {
-      applyFiltersRef.current(newFilters)
-    }, 250)
-  )
+  const debouncedFilterRef = useRef<DebouncedFunc<(newFilters: ServerFilter) => void> | null>(null)
 
-  // Update ref when dependencies change
-  useLayoutEffect(() => {
-    applyFiltersRef.current = (newFilters: ServerFilter) => {
-      let filtered = [...servers]
-      // ...same filter logic as above...
-      setFilteredServers(filtered)
+  // Create stable debounced filter function
+  const applyFilters = useMemo(() => {
+    if (!debouncedFilterRef.current) {
+      console.log('FilterBar: Creating new debounced filter function')
+      debouncedFilterRef.current = debounce((newFilters: ServerFilter) => {
+        console.log('FilterBar: Debounced filter running', {
+          filterValues: newFilters,
+          serverCount: servers.length
+        })
+
+        let filtered = [...servers]
+
+        if (newFilters.cpu) {
+          filtered = filtered.filter((server) =>
+            server.cpu.toLowerCase().includes(newFilters.cpu.toLowerCase())
+          )
+        }
+
+        filtered = filtered.filter((server) => server.price <= newFilters.maxPrice)
+
+        if (newFilters.minRAM || newFilters.maxRAM) {
+          filtered = filtered.filter((server) => {
+            const ram = server.ram_size
+            return (!newFilters.minRAM || ram >= newFilters.minRAM) &&
+                   (!newFilters.maxRAM || ram <= newFilters.maxRAM)
+          })
+        }
+
+        const diskTypes = ['nvme', 'sata', 'hdd'] as const
+        filtered = filtered.filter(server => 
+          diskTypes.every(type => {
+            const disks = server.serverDiskData[type]
+            const minSizeKey = `min${type.toUpperCase()}Size` as keyof ServerFilter
+            const maxSizeKey = `max${type.toUpperCase()}Size` as keyof ServerFilter
+            const minCountKey = `min${type.toUpperCase()}Count` as keyof ServerFilter
+            const maxCountKey = `max${type.toUpperCase()}Count` as keyof ServerFilter
+
+            const minSize = newFilters[minSizeKey] as number
+            const maxSize = newFilters[maxSizeKey] as number
+            const minCount = newFilters[minCountKey] as number
+            const maxCount = newFilters[maxCountKey] as number
+
+            if (disks.length === 0) {
+              return !minSize && !minCount
+            }
+
+            const matchingDisks = disks.filter(size => 
+              (!minSize || size >= minSize) && (!maxSize || size <= maxSize)
+            )
+
+            return (!minCount || matchingDisks.length >= minCount) && 
+                   (!maxCount || matchingDisks.length <= maxCount)
+          })
+        )
+
+        console.log('FilterBar: Setting filtered servers', {
+          inputCount: servers.length,
+          outputCount: filtered.length
+        })
+        setFilteredServers(filtered)
+      }, 250)
     }
+    return debouncedFilterRef.current
   }, [servers, setFilteredServers])
 
   // Cleanup debounce on unmount
-  useLayoutEffect(() => {
-    const debouncedFn = debouncedApplyFiltersRef.current
+  useEffect(() => {
     return () => {
-      debouncedFn.cancel()
+      debouncedFilterRef.current?.cancel()
     }
   }, [])
 
   const handleFilterChange = useCallback((newFilters: ServerFilter) => {
     setFilters(newFilters)
-    debouncedApplyFiltersRef.current(newFilters)
-  }, [setFilters])
+    applyFilters(newFilters)
+  }, [setFilters, applyFilters])
+
+  const generateSizeMarks = useCallback((type: string, maxValue: number) => {
+    const marks = [{ value: 0, label: type === 'HDD' ? '0TB' : '0GB' }]
+    const step = type === 'HDD' ? 2000 : 1000
+    
+    for (let i = step; i < maxValue; i += step) {
+      marks.push({
+        value: i,
+        label: formatDiskSize(i, type)
+      })
+    }
+    
+    marks.push({
+      value: maxValue,
+      label: formatDiskSize(maxValue, type)
+    })
+    
+    return marks
+  }, [])
+
+  const formatDiskSize = useCallback((value: number, type: string) => {
+    return type === 'HDD' ? `${value / 1000}TB` : `${value}GB`
+  }, [])
 
   const renderDiskSliders = useCallback((type: string) => {
     const minSizeKey = `min${type}Size` as keyof ServerFilter
@@ -184,30 +209,7 @@ const FilterBar = ({
         </Box>
       </Box>
     )
-  }, [filters, initialFilters, handleFilterChange])
-
-  const generateSizeMarks = useCallback((type: string, maxValue: number) => {
-    const marks = [{ value: 0, label: type === 'HDD' ? '0TB' : '0GB' }]
-    const step = type === 'HDD' ? 2000 : 1000
-    
-    for (let i = step; i < maxValue; i += step) {
-      marks.push({
-        value: i,
-        label: formatDiskSize(i, type)
-      })
-    }
-    
-    marks.push({
-      value: maxValue,
-      label: formatDiskSize(maxValue, type)
-    })
-    
-    return marks
-  }, [])
-
-  const formatDiskSize = useCallback((value: number, type: string) => {
-    return type === 'HDD' ? `${value / 1000}TB` : `${value}GB`
-  }, [])
+  }, [filters, initialFilters, handleFilterChange, generateSizeMarks, formatDiskSize])
 
   return (
     <Paper sx={{ 

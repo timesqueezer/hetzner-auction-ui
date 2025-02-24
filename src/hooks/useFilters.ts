@@ -1,4 +1,4 @@
-import { useCallback, useState, useMemo } from 'react'
+import { useCallback, useState } from 'react'
 import HetznerServer from '../types/HetznerServer'
 import ServerFilter, { createEmptyFilter } from '../types/ServerFilter'
 
@@ -7,14 +7,22 @@ interface UseFiltersResult {
   initialFilters: ServerFilter
   setFilters: (filters: ServerFilter) => void
   applyFilters: (servers: HetznerServer[]) => HetznerServer[]
-  calculateInitialFilters: (servers: HetznerServer[]) => ServerFilter
+  calculateInitialFilters: (servers: HetznerServer[]) => void
 }
 
 export function useFilters(): UseFiltersResult {
+  console.log('useFilters: Hook initializing')
+  
   const [filters, setFilters] = useState<ServerFilter>(createEmptyFilter())
   const [initialFilters, setInitialFilters] = useState<ServerFilter>(createEmptyFilter())
 
-  const calculateInitialFilters = useCallback((servers: HetznerServer[]): ServerFilter => {
+  const calculateInitialFilters = useCallback((servers: HetznerServer[]): void => {
+    console.log('useFilters: Calculating initial filters', {
+      serverCount: servers.length
+    })
+    
+    if (!servers.length) return;
+
     const maxRam = Math.max(...servers.map(server => server.ram_size))
     const roundedMaxRam = Math.pow(2, Math.ceil(Math.log2(maxRam)))
 
@@ -29,43 +37,41 @@ export function useFilters(): UseFiltersResult {
     }
 
     const newInitialFilters = {
-      cpu: '',
+      ...createEmptyFilter(),
       maxPrice: Math.ceil(Math.max(...servers.map(server => server.price))),
-      minRAM: 0,
       maxRAM: roundedMaxRam,
-      minNvmeSize: 0,
       maxNvmeSize: getMaxDiskSize('nvme'),
-      minNvmeCount: 0,
       maxNvmeCount: Math.max(...servers.map(server => server.serverDiskData.nvme.length)),
-      minSataSize: 0,
       maxSataSize: getMaxDiskSize('sata'),
-      minSataCount: 0,
       maxSataCount: Math.max(...servers.map(server => server.serverDiskData.sata.length)),
-      minHddSize: 0,
       maxHddSize: getMaxDiskSize('hdd'),
-      minHddCount: 0,
       maxHddCount: Math.max(...servers.map(server => server.serverDiskData.hdd.length))
     }
 
+    console.log('useFilters: Setting initial filters', newInitialFilters)
     setInitialFilters(newInitialFilters)
     setFilters(newInitialFilters)
-    return newInitialFilters
   }, [])
 
   const applyFilters = useCallback((servers: HetznerServer[]): HetznerServer[] => {
-    return servers.filter(server => {
+    console.log('useFilters: Applying filters', {
+      serverCount: servers.length,
+      currentFilters: filters
+    })
+    
+    const filtered = servers.filter(server => {
       // CPU filter
       if (filters.cpu && !server.cpu.toLowerCase().includes(filters.cpu.toLowerCase())) {
         return false
       }
 
       // Price filter
-      if (server.price > filters.maxPrice) {
+      if (filters.maxPrice && server.price > filters.maxPrice) {
         return false
       }
 
       // RAM filter
-      if ((filters.minRAM && server.ram_size < filters.minRAM) ||
+      if (server.ram_size < filters.minRAM || 
           (filters.maxRAM && server.ram_size > filters.maxRAM)) {
         return false
       }
@@ -74,10 +80,15 @@ export function useFilters(): UseFiltersResult {
       const diskTypes = ['nvme', 'sata', 'hdd'] as const
       return diskTypes.every(type => {
         const disks = server.serverDiskData[type]
-        const minSize = filters[`min${type.toUpperCase()}Size` as keyof ServerFilter] as number
-        const maxSize = filters[`max${type.toUpperCase()}Size` as keyof ServerFilter] as number
-        const minCount = filters[`min${type.toUpperCase()}Count` as keyof ServerFilter] as number
-        const maxCount = filters[`max${type.toUpperCase()}Count` as keyof ServerFilter] as number
+        const minSizeKey = `min${type.toUpperCase()}Size` as keyof ServerFilter
+        const maxSizeKey = `max${type.toUpperCase()}Size` as keyof ServerFilter
+        const minCountKey = `min${type.toUpperCase()}Count` as keyof ServerFilter
+        const maxCountKey = `max${type.toUpperCase()}Count` as keyof ServerFilter
+
+        const minSize = filters[minSizeKey] as number
+        const maxSize = filters[maxSizeKey] as number
+        const minCount = filters[minCountKey] as number
+        const maxCount = filters[maxCountKey] as number
 
         if (disks.length === 0) {
           return !minSize && !minCount
@@ -87,10 +98,17 @@ export function useFilters(): UseFiltersResult {
           (!minSize || size >= minSize) && (!maxSize || size <= maxSize)
         )
 
-        return matchingDisks.length >= (minCount || 0) && 
-               matchingDisks.length <= (maxCount || Infinity)
+        return (!minCount || matchingDisks.length >= minCount) && 
+               (!maxCount || matchingDisks.length <= maxCount)
       })
     })
+
+    console.log('useFilters: Filter results', {
+      inputCount: servers.length,
+      outputCount: filtered.length
+    })
+    
+    return filtered
   }, [filters])
 
   return {

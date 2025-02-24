@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useCallback } from 'react'
 import { Container, LinearProgress, Box, IconButton, useMediaQuery, useTheme, Typography } from "@mui/material"
 import FilterListIcon from '@mui/icons-material/FilterList'
 import RefreshIcon from '@mui/icons-material/Refresh'
@@ -12,6 +12,8 @@ import { useServerData } from "./hooks/useServerData"
 import { useState } from 'react'
 
 function App() {
+  console.log('App: Rendering')
+  
   const {
     servers,
     filteredServers,
@@ -30,31 +32,48 @@ function App() {
   } = useFilters()
 
   const [showFilters, setShowFilters] = useState(true)
+  const [isInitialized, setIsInitialized] = useState(false)
   
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
 
   // Handle mobile filter visibility
   useEffect(() => {
+    console.log('App: Mobile effect - isMobile:', isMobile)
     if (isMobile) {
       setShowFilters(false)
     }
   }, [isMobile])
 
-  // Initialize filters when servers are loaded
+  // Initialize filters only when servers are first loaded
   useEffect(() => {
-    if (servers.length > 0) {
+    console.log('App: Init effect triggered', { 
+      serverCount: servers.length, 
+      isInitialized
+    })
+    
+    if (servers.length > 0 && !isInitialized) {
+      console.log('App: Calling calculateInitialFilters')
       calculateInitialFilters(servers)
+      setIsInitialized(true)
     }
-  }, [servers, calculateInitialFilters])
+  }, [servers.length, calculateInitialFilters, isInitialized])
 
-  // Apply filters when they change
+  // Separate effect for filter application
   useEffect(() => {
-    if (servers.length > 0) {
+    console.log('App: Filter effect triggered', { 
+      serverCount: servers.length,
+      isInitialized,
+      hasFilters: !!filters
+    })
+    
+    if (servers.length > 0 && isInitialized && filters) {
+      console.log('App: Applying filters to servers')
       const filtered = applyFilters(servers)
+      console.log('App: Filter result count:', filtered.length)
       setFilteredServers(filtered)
     }
-  }, [servers, filters, applyFilters, setFilteredServers])
+  }, [servers, filters, applyFilters, setFilteredServers, isInitialized])
 
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -110,6 +129,7 @@ function App() {
               setFilters={setFilters}
               servers={servers}
               setFilteredServers={setFilteredServers}
+              calcInitialFilters={calculateInitialFilters}
             />
           </Box>
           

@@ -5,18 +5,27 @@ import Typography from '@mui/material/Typography'
 import IconButton from '@mui/material/IconButton'
 import LightModeIcon from '@mui/icons-material/LightMode'
 import DarkModeIcon from '@mui/icons-material/DarkMode'
-import { useColorScheme } from '@mui/material/styles'
+import { useTheme } from '@mui/material/styles'
+import { useState, useEffect } from 'react'
 
 export default function ButtonAppBar() {
-  const { mode, setMode } = useColorScheme()
-
+  const theme = useTheme()
+  const [isDarkMode, setIsDarkMode] = useState(theme.palette.mode === 'dark')
+  
   const handleToggleMode = () => {
-    setMode(mode === 'light' ? 'dark' : 'light')
+    const mode = isDarkMode ? 'light' : 'dark'
+    setIsDarkMode(!isDarkMode)
+    document.documentElement.setAttribute('data-theme', mode)
+    localStorage.setItem('theme-mode', mode)
   }
 
-  const buttonIcon = () => {
-    return mode === 'light' ? <DarkModeIcon /> : <LightModeIcon />
-  }
+  useEffect(() => {
+    const savedMode = localStorage.getItem('theme-mode')
+    if (savedMode) {
+      setIsDarkMode(savedMode === 'dark')
+      document.documentElement.setAttribute('data-theme', savedMode)
+    }
+  }, [])
 
   return (
     <Box sx={{ flexGrow: 1 }}>
@@ -29,11 +38,11 @@ export default function ButtonAppBar() {
             size="large"
             edge="end"
             color="inherit"
-            aria-label="dark mode"
+            aria-label="toggle theme"
             sx={{ mr: 2 }}
             onClick={handleToggleMode}
           >
-            {buttonIcon()}
+            {isDarkMode ? <LightModeIcon /> : <DarkModeIcon />}
           </IconButton>
         </Toolbar>
       </AppBar>
